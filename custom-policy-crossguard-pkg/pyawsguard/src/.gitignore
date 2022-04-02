@@ -1,0 +1,7 @@
+*.pyc
+*.egg
+*.egg-info/
+dist/
+venv/
+.DS_Store
+

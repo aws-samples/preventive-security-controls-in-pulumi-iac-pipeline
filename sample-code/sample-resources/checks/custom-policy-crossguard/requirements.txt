@@ -1,0 +1,3 @@
+pulumi-policy==1.4.0
+pulumi-aws==4.33.1
+pyawsguard>=0.0.1

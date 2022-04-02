@@ -1,0 +1,4 @@
+*.pyc
+venv/
+Pulumi.*.yaml
+.DS_Store

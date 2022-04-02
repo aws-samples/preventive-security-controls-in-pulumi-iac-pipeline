@@ -1,0 +1,123 @@
+#  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  SPDX-License-Identifier: MIT-0
+
+#  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+#  software and associated documentation files (the "Software"), to deal in the Software
+#  without restriction, including without limitation the rights to use, copy, modify,
+#  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+#  permit persons to whom the Software is furnished to do so.
+
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+#  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+#  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+#  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+#  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      # Install Pulumi and connect to S3 backend
+      - curl -fsSL https://get.pulumi.com/ | sh
+      - export PATH=$PATH:$HOME/.pulumi/bin
+      - PULUMI_STACK_NAME=${REPO_NAME}-resources-${DEPLOY_ACCOUNT_NAME}
+
+      # Install static analysis tools
+      - pip3 install bandit safety
+  
+  pre_build:
+    commands:
+      - export AUTHOR=`aws codecommit get-commit --commit-id $CODEBUILD_RESOLVED_SOURCE_VERSION --repository-name $REPO_NAME | jq -r '.commit.author.name'`
+      - export EMAIL=`aws codecommit get-commit --commit-id $CODEBUILD_RESOLVED_SOURCE_VERSION --repository-name $REPO_NAME | jq -r '.commit.author.email'`
+
+      # Replace repository name, domain and domain owner with your own settings from AWS CodeArtifact Domain and Repository
+      - aws codeartifact login --tool pip --repository custompolicypack --domain acme --domain-owner 123456789012
+  
+  build:
+    commands:
+      #
+      # Static Analysis
+      #
+
+      - cd $CODEBUILD_SRC_DIR/resources
+
+      # Bandit
+      - mkdir -p target/bandit
+      - bandit -r ./ -f xml -o target/bandit/output.xml --verbose --exit-zero
+
+      # Safety
+      - safety check
+
+      #
+      # Prepare 'Package-downloadable' CrossGuard Policies
+      #
+  
+      - cd $CODEBUILD_SRC_DIR/checks/custom-policy-crossguard
+      - python3 -m venv ./venv
+      - source ./venv/bin/activate
+      - pip3 install --upgrade pip setuptools wheel
+      - pip3 install -r requirements.txt
+
+      # Setup awsguard
+      - cd $CODEBUILD_SRC_DIR/checks/awsguard
+      - npm install
+
+      #
+      # Prepare project environment
+      #
+
+      - cd $CODEBUILD_SRC_DIR/resources
+      - python3 -m venv ./venv
+      - source ./venv/bin/activate
+      - pip3 install -r requirements.txt
+      - pulumi login s3://$PULUMI_STATE_BUCKET_NAME
+
+      #
+      # Pulumi Preview with AWSGuard and CrossGuard Policies
+      #
+
+      - echo "Running AwsGuard"
+      - awspol_result="$(pulumi preview --policy-pack $CODEBUILD_SRC_DIR/checks/awsguard --stack ${PULUMI_STACK_NAME})"; awspol_exitcode=$?;
+      - echo "$awspol_result"
+
+      - echo "Running CrossGuard"
+      - cstpol_result="$(pulumi preview --policy-pack $CODEBUILD_SRC_DIR/checks/custom-policy-crossguard --stack ${PULUMI_STACK_NAME})"; cstpol_exitcode=$?;
+      - echo "$cstpol_result"
+      - echo "$cstpol_result" > crossguard_output.txt
+
+      #
+      # Pulumi Deployment
+      #
+
+      - |
+        if [ $awspol_exitcode -eq 0 -a $cstpol_exitcode -eq 0 ];
+        then
+          pulumi up --stack ${PULUMI_STACK_NAME} --yes && exit 0;
+        else
+          echo "Policy failures found" && exit 1;
+        fi
+
+  post_build:
+    commands:
+      #
+      # Publish Pulumi metrics to CloudWatch
+      #
+
+      - cd $CODEBUILD_SRC_DIR/resources
+      # Parse the cli output and write CloudWatch metrics data objects to capture policy violations
+      # Generates a file metrics.json which is later passed as input to 'put-metric-data' command in post-build step
+      - python3 parser.py crossguard_output.txt
+      - aws cloudwatch put-metric-data --namespace "Pulumi Policy Metrics" --metric-data file://metrics.json
+
+reports:
+  # Generate report for 'bandit' run. This output can be seen in AWS CodeBuild console.
+  bandit_reports:
+    files:
+      - output.xml
+    base-directory: resources/target/bandit
+    file-format: JUNITXML
+
