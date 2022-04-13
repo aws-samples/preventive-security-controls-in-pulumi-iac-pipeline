@@ -35,7 +35,7 @@ Since AWSGuard offers limited policies, we have developed additional customized 
 In the absence of Pulumi Enterprise support, the custom policies can be packaged so that they can be easily deployed to all project repositories in the AWS organization, without having to copy-paste the code.
 
 ### Custom Policy Pack using Pulumi CrossGuard in Python
-The preventive controls and policies have been written as code and stored in the folder named *custom-policy-crossguard-pkg* in the repository. The policy-as-code can be published as a Python package and hosted in the AWS CodeArtifact repository under a domain. From there, the package can be imported into each application project under the *checks/custom-policy-crossguard* sub-folder. In the sample repository, the sample infrastructure code to test the policies can be found under *sample-code/sample-resources/*. The process to package the checks and import them via CodeArtifact has been documented in the following section.
+The preventive controls and policies have been written as code and stored in the folder named *custom-policy-crossguard-pkg* in the repository. The policy-as-code can be published as a Python package and hosted in the AWS CodeArtifact repository under a domain. From there, the package can be imported into each application project under the *checks/custom-policy-crossguard* sub-folder. Here In the sample repository, the sample infrastructure code to test the policies can be found under *sample-code/sample-resources/resources/*. The process to package the checks and import them via CodeArtifact has been documented in the following section.
 
 #### Packaging & Distributing Pulumi CrossGuard Custom Policy packs using AWS CodeArtifact
 The folder named *customer-policy-crossguard-pkg* contains the code and the documents required for packaging a Python project into a package that can be easily distributed, without having to copy the source code. This folder needs to be uploaded into a CodeCommit repository, and future changes and distributions managed from there. Refer to this [link](https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-create-repository.html) for more information on how to create a CodeCommit repository. This repository is maintained typically by the Security Engineering team. 
@@ -101,7 +101,7 @@ All IaC components are written with Pulumi v3.21.0, in Python 3.9. The sample co
 - S3 buckets
 - SQS queues
 
-The sample code for all the components highlighted in the list above are available under the folder *sample-code/sample-resources/* in the repository.
+The sample code for all the components highlighted in the list above are available under the folder *sample-code/sample-resources/resources* in the repository. Within *sample-code/sample-resources/checks/custom-policy-crossguard/requirements.txt* please add the name and version of the python package that has been built and deployed to AWS CodeArtifact. The *pulumi preview* command later refers to this checks folder for all policies to verify the deployable resources.
 It is to be noted that the code included in the repositories contain example code for both successful and failure scenarios when enforcing the Pulumi CrossGuard policies. So, when deploying the resources defined in this sample as-is, it is expected to see build failure as shown in the figure below. Once the code for failure scenarios is removed, the build will succeed and resources will be deployed via *pulumi up*.
 
 ### Enforcing the checks in AWS CodeBuild
