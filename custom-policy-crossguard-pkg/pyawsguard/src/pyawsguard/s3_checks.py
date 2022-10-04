@@ -54,14 +54,11 @@ s3_public_access_block = ResourceValidationPolicy(
 # S3 Bucket policy validator
 def s3_ssl_requests_validator(args: ResourceValidationArgs, report_violation: ReportViolation):
     if args.resource_type == "aws:s3/bucketPolicy:BucketPolicy":
-        f = open('data.txt', 'w')
         if "policy" in args.props:
             flag = 0
             policy = json.loads(args.props["policy"])
-            if "Statement" in policy:
+            if 'Statement' in policy:
                 for stmt in policy["Statement"]:
-                    print(stmt["Condition"])
-                    print(stmt["Condition"]["Bool"])
                     if "Condition" in stmt and "Bool" in stmt["Condition"] and "aws:SecureTransport" in stmt["Condition"]["Bool"] and stmt["Condition"]["Bool"]["aws:SecureTransport"] == "false":
                         flag = 1
                         break
