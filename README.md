@@ -39,12 +39,24 @@ The preventive controls and policies have been written as code and stored in the
 
 #### Packaging & Distributing Pulumi CrossGuard Custom Policy packs using AWS CodeArtifact
 The folder named *customer-policy-crossguard-pkg* contains the code and the documents required for packaging a Python project into a package that can be easily distributed, without having to copy the source code. This folder needs to be uploaded into a CodeCommit repository, and future changes and distributions managed from there. Refer to this [link](https://docs.aws.amazon.com/codecommit/latest/userguide/how-to-create-repository.html) for more information on how to create a CodeCommit repository. This repository is maintained typically by the Security Engineering team. 
+
+Example how to create CodeCommit repository with AWS CLI:
+```bash
+    aws codecommit create-repository --repository-name custom-policy-crossguard-pkg --repository-description "Pulumi CrossGuard Policies repository"
+```
+
+Refer to the detailed instructions how to create [a CodeArtifact domain](https://docs.aws.amazon.com/codeartifact/latest/ug/domain-create.html) and [a CodeArtifact repository](https://docs.aws.amazon.com/codeartifact/latest/ug/create-repo.html) in the domain. Example how to create CodeArtifact domain and repository using AWS CLI:
+```bash
+    aws codeartifact create-domain --domain <domain-name>
+    aws codeartifact create-repository --domain <domain-name> --domain-owner <aws-account-id> --repository <repository-name> --description "Pulumi CrossGuard policies packages"
+```
+
 The file *setup.cfg* contains the details of the package including the name and version number. Within the *src/* folder is the project folder that will be distributed as a package to be installed via pip.
 
 To generate the distribution packages, the following commands are to be run from the same folder where *pyproject.toml* is located.
 
 ```bash
-    python3 -m pip install –upgrade build
+    python3 -m pip install --upgrade build
     python3 -m build 
 ```
 
@@ -60,18 +72,18 @@ To upload the generated distribution archives, we use the twine package. The ins
 
 ```bash
     python3 -m pip install --upgrade twine
-    aws codeartifact login --tool twine --repository pulumi --domain pac --domain-owner <account Id>
+    aws codeartifact login --tool twine --repository <repository-name> --domain <domain-name> --domain-owner <aws-account-id>
     export TWINE_USERNAME=aws
-    export TWINE_PASSWORD=`aws codeartifact get-authorization-token --domain acme --domain-owner <account Id> --query authorizationToken --output text`
-    export TWINE_REPOSITORY_URL=`aws codeartifact get-repository-endpoint --domain acme --domain-owner <account Id> --repository custompolicypack --format pypi --query repositoryEndpoint --output text`
-    python3 -m twine upload --repository pulumi dist/*  
+    export TWINE_PASSWORD=`aws codeartifact get-authorization-token --domain <domain-name> --domain-owner <aws-account-id> --query authorizationToken --output text`
+    export TWINE_REPOSITORY_URL=`aws codeartifact get-repository-endpoint --domain <domain-name> --domain-owner <aws-account-id> --repository <repository-name> --format pypi --query repositoryEndpoint --output text`
+    python3 -m twine upload --repository <repository-name> dist/*  
 ```
     
 This will upload the package to AWS CodeArtifact. This method allows for managing versions of the policy-as-code easily.  
 To download the package and use it within the pipeline for policy enforcement, some additional commands are to be added into the *buildspec.yml* file for the pipeline. Specifically, these following command connects to the CodeArtifact repository and enable pip to download our custom package later. A sample buildspec file has been provided here *sample-code/sample-build-file/buildspec.yaml*.
 
 ```bash
-    aws codeartifact login --tool pip --repository pulumi --domain pac --domain-owner <account Id>
+    aws codeartifact login --tool pip --repository <repository-name> --domain <domain-name> --domain-owner <aws-account-id>
 ```
 
 The preventative checks in the custom policy package cover the following items mapped to checks from *[Prowler](https://github.com/prowler-cloud/prowler)*. Prowler is an open-source security tool to perform AWS security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains more than 200 controls covering CIS, PCI-DSS, ISO27001, GDPR, HIPAA, FFIEC, SOC2, AWS FTR, ENS and custom security frameworks.
