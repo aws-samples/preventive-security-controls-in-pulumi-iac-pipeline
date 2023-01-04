@@ -30,8 +30,6 @@ import time
 import datetime
 import os
 
-from pyawsguard.metric_object import metric
-
 
 ###################################
 # EC2 - Security Groups

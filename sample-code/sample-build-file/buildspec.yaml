@@ -42,7 +42,12 @@ phases:
       #
       # Static Analysis
       #
-
+      
+      #
+      # NOTE: When setting up an AWS CodeBuild project, make sure that sample-code/sample-resources/ is passed in 
+      # as the Source Directory to AWS CodeBuild. This can be verified by echoing the value of the
+      # environment variable 'CODEBUILD_SRC_DIR'
+      #
       - cd $CODEBUILD_SRC_DIR/resources
 
       # Bandit
